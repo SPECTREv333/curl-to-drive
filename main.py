@@ -89,10 +89,10 @@ def main():
         data=json.dumps(params)
     )
 
-    print(r.headers)
+    #print(r.headers)
     location = r.headers['Location']
 
-    chunk_size = 262144
+    chunk_size = 262144 #minimum required
     filesize = int(req.headers["Content-Length"])
     tests = 0
 
@@ -102,20 +102,23 @@ def main():
         # If you have chunk encoded response uncomment if
         # and set chunk_size parameter to None.
         # if chunk:
+        #range_end = x if (x := tests + len(chunk)) == filesize else (x-1)
+        range_end = tests + len(chunk) - 1
         headers = {
             "Content-Length": str(len(chunk)),
-            "Content-Range": f"bytes {tests}-{tests + len(chunk) - 1}/{filesize}"
+            "Content-Range": f"bytes {tests}-{range_end}/{filesize}"
         }
-        print(headers)
-        print(chunk)
+        print(f"uploaded range: {tests}-{range_end} filesize: {filesize} progress: {(range_end+1/filesize*100)}%")
         tests += len(chunk)
-        print(tests)
         r = requests.put(
             location,
             headers=headers,
             data=chunk
         )
-        print(r.text)
+        print(f"{r.status_code}: {r.text}")
+
+    r.close()
+    req.close()
 
 
 if __name__ == '__main__':
