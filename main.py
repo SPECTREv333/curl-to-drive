@@ -77,10 +77,15 @@ def main():
         print("unable to get cred")
         exit(1)
 
-    gapihead = {"Authorization": "Bearer " + access_token, "Content-Type": "application/json"}
+    # 1. Initial request
+    gapihead = {"Authorization": "Bearer " + access_token,
+                "Content-Type": "application/json; charset=UTF-8",
+                "X-Upload-Content-Type": req.headers["Content-Type"],
+                }
+
     params = {
         "name": filename,
-        "mimeType": "video/mp4"
+        "mimeType": "video/mp4"  # hardcoded, adjust for your needs
     }
 
     r = requests.post(
@@ -89,27 +94,24 @@ def main():
         data=json.dumps(params)
     )
 
-    #print(r.headers)
+    # 2. Get Location for subsequent requests
     location = r.headers['Location']
 
-    chunk_size = 262144 #minimum required
+    chunk_size = 262144  # minimum required
     filesize = int(req.headers["Content-Length"])
-    tests = 0
+    bytes_sent = 0
 
-    raw_resp: urllib3.HTTPResponse = req.raw
+    raw_resp: urllib3.HTTPResponse = req.raw  # requests' iter_content() is broken
 
     for chunk in raw_resp.stream(chunk_size, decode_content=False):
-        # If you have chunk encoded response uncomment if
-        # and set chunk_size parameter to None.
-        # if chunk:
-        #range_end = x if (x := tests + len(chunk)) == filesize else (x-1)
-        range_end = tests + len(chunk) - 1
+        range_end = bytes_sent + len(chunk) - 1
         headers = {
             "Content-Length": str(len(chunk)),
-            "Content-Range": f"bytes {tests}-{range_end}/{filesize}"
+            "Content-Range": f"bytes {bytes_sent}-{range_end}/{filesize}"
         }
-        print(f"uploaded range: {tests}-{range_end} filesize: {filesize} progress: {(range_end+1/filesize*100)}%")
-        tests += len(chunk)
+        print(
+            f"uploaded range: {bytes_sent}-{range_end} filesize: {filesize} progress: {(((range_end+1) / filesize) * 100)}%")
+        bytes_sent += len(chunk)
         r = requests.put(
             location,
             headers=headers,
